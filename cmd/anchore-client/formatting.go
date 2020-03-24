@@ -1,14 +1,48 @@
 package main
 
 import (
+	"fmt"
 	"github.com/anchore/client-go/pkg/anchore/client"
 	"github.com/olekukonko/tablewriter"
 	"os"
 	"time"
 )
 
+type OutputFormat int
+const (
+	JSON = iota
+	TABLE // Default
+)
 
-func RenderAnchoreImageToTable(Images *[]client.AnchoreImage) error {
+type OutputConfiguration struct {
+	Format OutputFormat
+	Verbose bool
+}
+
+func NewOutputConfiguration(isJson bool, isDebug bool) *OutputConfiguration {
+	var outFmt OutputFormat = TABLE
+	if isJson {
+		outFmt = JSON
+	}
+
+	return &OutputConfiguration{
+		Format:  outFmt,
+		Verbose: isDebug,
+	}
+}
+
+// Rendering interface to convert CLI objects to consistent outputs
+// Expect implementations for each output type: json, table, etc
+type OutputRenderer interface {
+	RenderImages(image *[]client.AnchoreImage) error
+}
+
+type TableRenderer struct {
+	Configuration *OutputConfiguration
+	Table *tablewriter.Table
+}
+
+func (t *TableRenderer) RenderImages(images *[]client.AnchoreImage) error {
 	/*
 	Image Digest: sha256:3936fb3946790d711a68c58be93628e43cbca72439079e16d154b5db216b58da
 	Parent Digest: sha256:2539d4344dd18e1df02be842ffc435f8e1f699cfc55516e2cf2cb16b7a9aea0b
@@ -26,27 +60,27 @@ func RenderAnchoreImageToTable(Images *[]client.AnchoreImage) error {
 	Full Tag: docker.io/nginx:latest
 	Tag Detected At: 2020-03-24T16:31:58Z
 	*/
-	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"Tag", "Digest", "Status", "Created At"})
-	table.SetBorder(false)                                // Set Border to false
-	for _, itm := range *Images {
+
+	t.Table.SetHeader([]string{"Tag", "Digest", "Status", "Created At"})
+	t.Table.SetBorder(false)                                // Set Border to false
+	for _, itm := range *images {
 		r := []string{itm.ImageDetail[0].Fulltag, itm.ImageDigest, itm.AnalysisStatus, itm.CreatedAt.Format(time.RFC3339)}
-		table.Append(r)
+		t.Table.Append(r)
 	}
-	table.Render()
+	t.Table.Render()
 	return nil
 }
 
-// Rendering interface to convert CLI objects to consistent outputs
-// Expect implementations for each output type: json, table, etc
-type OutputRenderer interface {
-	RenderImage(image *client.AnchoreImage) error
+func NewTableRenderer(outputConfig *OutputConfiguration) (*TableRenderer, error) {
+	if outputConfig.Format != TABLE {
+		return nil, fmt.Errorf("Invalid input for this renderer. Should be TABLE")
+	}
+
+	r := &TableRenderer{
+		Configuration: outputConfig,
+		Table:         tablewriter.NewWriter(os.Stdout),
+	}
+
+	return r, nil
 }
 
-type TableRenderer struct {
-	Table *tablewriter.Table
-}
-
-func NewTableRenderer(outputConfig *OutputConfiguration) (*OutputRenderer, error) {
-	return nil, nil
-}

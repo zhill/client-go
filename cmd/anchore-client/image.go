@@ -50,7 +50,9 @@ func ListImagesAction(c *cli.Context) error {
 		return err
 	}
 
-	err = RenderAnchoreImageToTable(&images)
+	cfg := NewOutputConfiguration(false, true)
+	renderer, err := NewTableRenderer(cfg)
+	err = renderer.RenderImages(&images)
 	if err != nil {
 		return err
 	}

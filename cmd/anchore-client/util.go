@@ -5,13 +5,22 @@ import (
 	"fmt"
 	"github.com/anchore/client-go/pkg/anchore/client"
 	"github.com/antihax/optional"
+	"net/url"
 )
 
-func NewInitializedClient(Host string, Username string, Password string) (*client.APIClient, context.Context, error){
+func NewInitializedClient(Url string, Username string, Password string) (*client.APIClient, context.Context, error){
 	cfg := client.NewConfiguration()
-	cfg.Host = Host
-	cfg.Scheme = "http"
+
+	parsedUrl, err := url.Parse(Url)
+	if err != nil {
+		fmt.Printf("Invalid url %v\n", Url)
+	}
+
+	cfg.Scheme = parsedUrl.Scheme
+	cfg.Host = parsedUrl.Host
+	cfg.BasePath = parsedUrl.Path
 	cfg.UserAgent = "anchore/client-go@some_commit_sha"
+
 	c := client.NewAPIClient(cfg)
 
 	auth := context.WithValue(context.Background(), client.ContextBasicAuth, client.BasicAuth{
